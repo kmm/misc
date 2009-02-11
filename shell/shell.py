@@ -2,7 +2,7 @@ import readline
 
 
 class Shell:
-    commands = [("demo", self['demo'])]
+    commands = [("demo", "demo")]
     prompt = "> "
 
     def __init__(self):
@@ -22,3 +22,7 @@ class Shell:
         while True:
             input = raw_input(self.prompt)
             print input
+
+
+s = Shell()
+s.start()
