@@ -1,13 +1,7 @@
 import readline
 
 class Shell:
-    __commands = None
-    __cmdhelp = None
-    __trace = None
-    __prompt = None
-    __exitcmds = None
- 
-    def __init__(self):
+    def __init__(self, arg=None):
         self.__commands = {}
         self.__cmdhelp = {}
         self.setcmd('@!', self.poptrace, "- Pops last exception off trace stack")
@@ -22,7 +16,7 @@ class Shell:
 
     def help(self, arg):
         if not arg:
-            return "? <command> - Displays command help, if available\nAvailable commands: %s" % ", ".join(self.__commands.keys())    
+            return "? <command> - Displays command help, if available\nAvailable commands: %s" % ", ".join(sorted(self.__commands.keys()))    
         if (arg in self.__commands) and (arg in self.__cmdhelp) and (self.__cmdhelp[arg]):
             return "%s %s" % (arg, self.__cmdhelp[arg])
         if arg not in self.__commands:
@@ -88,11 +82,9 @@ class Shell:
             try:
                 return self.__commands[cmd](args)
             except AttributeError or NameError, e:
-                print e
                 self.__trace.append(e)
                 return "Command '%s' failed" % cmd
             except TypeError, e:
-                print e
                 self.__trace.append(e)
                 return "Bad argument '%s' for '%s'" % (args, cmd)
         else:
@@ -115,8 +107,7 @@ class Shell:
                 result = self.handle(input)
                 if result:
                     print result
-                else:
-                    print input
+
             except KeyboardInterrupt:
                 break
         return ret
