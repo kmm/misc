@@ -10,7 +10,6 @@ class Shell:
  
     def __init__(self):
         self.__commands = {}
-        self.__commands['test'] = self.default
         self.__commands['!'] = self.poptrace
 
         self.trace = []
@@ -52,10 +51,10 @@ class Shell:
                 return self.__commands[cmd](args)
             except AttributeError or NameError, e:
                 # lists have pop() but no push()! wtf?
-                self.trace.insert(0, e)
+                self.trace.append(e)
                 return "Command '%s' failed" % cmd
             except TypeError, e:
-                self.trace.insert(0, e)
+                self.trace.append(e)
                 return "Bad argument '%s' for '%s'" % (args, cmd)
         else:
             return self.default(input)
@@ -99,8 +98,25 @@ if __name__ == "__main__":
             self.start()
 
         def default(self, arg):
-            for opr in arg.split(' '):
-                self.stack.insert(0, opr)
+            operands = "+-*/"
+            if arg.empty:
+                return self.stack
+
+            for word in arg.split(' '):
+                if word in operands and (len(self.stack) >= 2):
+                    try:
+                        b = str(self.stack.pop())
+                        a = str(self.stack.pop())
+                        print a + word + b
+                        self.stack.append(eval(a + word + b))
+                    except e:
+                        return "Bad mojo"
+                else:
+                    try:
+                        self.stack.append(float(word))
+                    except ValueError:
+                        return "Input must be an operator or a parseable number"
+            
             return self.stack
 
         def stackpop(self, arg):
@@ -108,9 +124,6 @@ if __name__ == "__main__":
                 return self.stack.pop()
             except IndexError:
                 return None
-
-        def add(self, arg):
-            return reduce(lambda a,b:float(a)+float(b),arg.split(' '))
 
     def subshell(arg):
         ss = Shell()
