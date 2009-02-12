@@ -43,6 +43,7 @@ class Calc(spys.SPyShell):
 
     def default(self, arg):
         """
+
         Main program loop, overrides SPyS default command handler
         method to implement interactive RPN calculator.
         """

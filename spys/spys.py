@@ -1,6 +1,38 @@
 import readline
 
 class SPyShell(object):
+    """
+    Simple Python Shell (SPyS) implements an interactive, functional shell/REPL* extensible using a
+    dynamically loading plugin architecture. [REPL = read-eval-print loop]
+    
+    Invocation of a new SPyS instance is accomplished by creating a new SPyS instance and calling 
+    the start() method. On invocation, SPyS will start up an interactive command shell that provides
+    a few utility functions:
+        @load <module> - Dynamically load <module>, importing provided commands into the SPyS environment
+        @! - If a command fails, @! will print the thrown exception, useful for debugging
+        @> [string] - Sets command shell prompt to [string], resets prompt to default if called with no argument
+        @exec <string> - Executes python statement <string> in the current execution context
+        @bind <keyword> <string> - Binds python function definiton in <string> to <keyword>
+        ? [cmd]- Displays help message
+    
+    In addition to dynamic plugin loading, callable objects can be bound to keywords in a SPyS instance via
+    the setcmd method. Functions called by SPyS will be passed a single argument consisting of all 
+    characters following the command executed on the SPyS command line. All parsing of command arguments 
+    is handled by the called function.
+
+    For example, to bind a command "hex" that implements a simple dec->hex converter:
+        spysinstance.setcmd('hex', lambda x:"%x" % int(x))
+    This can also be done from within the SPyS instance REPL, using self:
+        @exec self.setcmd('hex', lambda x:"%x" % int(x))
+    SPyS also provides a shortcut in the REPL for binding inlined functions:
+        @bind hex lambda x:"%x" % int(x)
+
+    Previously bound commands can be removed by passing None instead of a function to setcmd.
+
+    By default, any input that does not match a bound command is passed to the default(arg) method,
+    which can be overridden to provide custom input handling.
+
+    """
     def __init__(self, arg=None):
         self.__commands = {}
         self.__cmdhelp = {}
@@ -8,7 +40,8 @@ class SPyShell(object):
         self.setcmd('@load', self.loadmodule, "<module> - Imports an extension")
         self.setcmd('@>', self.setprompt, "[string] - Sets interactive prompt to string, default if blank")
         self.setcmd('?', self.help, "- Displays help message")
-
+        self.setcmd('@exec', self.execute, "<statement> - Execute a python statement")
+        self.setcmd('@bind', self.bindfn, "<keyword> <string> - Bind inlined function in <string> to <keyword>")
         self.__trace = []
         self.__exitcmds = ['exit', 'quit']
 
@@ -23,11 +56,11 @@ class SPyShell(object):
             return "%s is unbound" % arg
         
         return "No help for %s" % arg
-
+    
     def setcmd(self, keyword, fn, help=None):
         if keyword and not fn:
-            del(__commands[keyword])
-            del(__cmdhelp[keyword])
+            del(self.__commands[keyword])
+            del(self.__cmdhelp[keyword])
         if keyword and fn:
             self.__commands[keyword] = fn
             self.__cmdhelp[keyword] = help
@@ -43,6 +76,23 @@ class SPyShell(object):
             return "No exceptions on stack."
         else:
             return self.__trace.pop()
+    
+    def execute(self, input):
+        try:
+            exec input
+        except Exception, e:
+            self.__trace.append(e)
+            return "Execution failed"
+
+    def bindfn(self, input):
+        (keyword, fn) = input.split(' ', 1)
+        expr = "self.setcmd('%s', %s, '''(bound function <<%s>>)''')" % (keyword, fn, fn)
+        try:
+            exec expr
+            return "<<%s>> bound to '%s'" % (fn, keyword)
+        except Exception, e:
+            self.__trace.append(e)
+            return "Bind failed"
 
     def loadmodule(self, input):
         commands = []
@@ -91,7 +141,7 @@ class SPyShell(object):
             return self.default(input)
  
     def default(self, input):
-        return input
+        pass
  
     def start(self, ret=None):
         readline.set_completer(self.completer)
