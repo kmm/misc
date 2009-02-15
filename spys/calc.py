@@ -25,8 +25,12 @@ class Calc(spys.SPyShell):
         super(Calc, self).__init__(self)
         self.stack = []
         self.setprompt("rpn> ")
+        self.setcmd("^^", self.parentcmd)
         self.start()
     
+    def parentcmd(self, arg):
+        return dir(super(Calc, self))
+
     def dumpstack(self, limit=None):
         """Pretty-print RPN stack, with indexes."""
         output = []
