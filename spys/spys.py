@@ -228,6 +228,7 @@ class SPyShell(object):
 
         while True:
             try:
+                readline.set_completer(self.completer)
                 input = raw_input(self.__prompt)
                 self.__lastinput.append(input)
                 if input in self.__exitcmds:
@@ -237,10 +238,8 @@ class SPyShell(object):
                 self.__lastoutput.append(result)
                 if result:
                     print result
-
             except:
                 break
-        readline.set_completer(self.completer)
         return ret
  
 if __name__ == "__main__":
