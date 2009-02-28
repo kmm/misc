@@ -237,7 +237,7 @@ class SPyShell(SPyIO):
             return "Execution failed"
 
     def bindfn(self, input):
-        (keyword, fn) = input.split(' ', 1)
+        (keyword, fn) = input.split(None, 1)
         expr = "self.setcmd('%s', %s, '''(bound function <<%s>>)''')" % (keyword, fn, fn)
         try:
             exec expr
@@ -247,7 +247,7 @@ class SPyShell(SPyIO):
             return "Bind failed"
 
     def call(self, input):
-        (cmd, args) = input.split(' ', 1)
+        (cmd, args) = input.split(None, 1)
         command = "%s %s" % (cmd, self.handle(args))
         self.output(command)
         return self.handle(command)
@@ -281,7 +281,7 @@ class SPyShell(SPyIO):
         if not input:
             return
         try:
-            (cmd, args) = input.split(' ', 1)
+            (cmd, args) = input.split(None, 1)
         except ValueError:
             cmd = input
             args = None
