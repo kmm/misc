@@ -1,3 +1,5 @@
+import readline
+import types
 import inspect
 
 class FixedStack(object):
@@ -23,25 +25,22 @@ class FixedStack(object):
         return self.buffer.pop()
 
 class SPyIO(object):
-    """
-    SPyIO provides I/O abstraction and a shared dict to SPyShell instances via
-    inheritance. By default, provides two I/O endpoints, out:0 and in:0, 
-    which just wrap print and raw_input. Additional endpoints can be defined 
-    using the registerinput() and registeroutput() methods. If a nonexistant
-    endpoint is requested, the default handler will be used.
-    Endpoints are just functions! See cursesdemo for an example of this and 
-    why it's useful.
-    """
+    '''
+    SPyIO provides I/O abstraction and a shared dict to SPyShell instances via inheritance.
+    By default, provides two I/O endpoints, out:0 and in:0, which just wrap
+    print and raw_input. Additional endpoints can be defined using the
+    registerinput() and registeroutput() methods.
+    '''
     def __init__(self, arg=None):
         self.shared = {}
-        self._outendpoints = {0:self.defaultoutput}
-        self._inendpoints = {0:self.defaultinput}        
+        self.__outendpoints = {0:self.defoutput}
+        self.__inendpoints = {0:self.definput}        
 
-    def defaultoutput(self, data=None):
+    def defoutput(self, data=None):
         print data
         return True
         
-    def defaultinput(self, data=None):
+    def definput(self, data=None):
         if data:
             indata = raw_input(data)
         else:
@@ -50,33 +49,34 @@ class SPyIO(object):
 
     def output(self, data=None, endpoint=None):
         if not endpoint:
-            self._outendpoints[0](data)
-        elif (endpoint in self._outendpoints) and callable(self._outendpoints[endpoint]):
-            self._outendpoints[endpoint](data)
+            self.__outendpoints[0](data)
+        elif (endpoint in self.__outendpoints) and callable(self.__outendpoints[endpoint]):
+            self.__outendpoints[endpoint](data)
         else:
-            self._outendpoints[0](data)
+            raise NameError('Unknown output endpoint: %s' % data)
     
     def input(self, data, endpoint=None):
         if not endpoint:
-            return self._inendpoints[0](data)
-        elif (endpoint in self._inendpoints) and callable(self._inendpoints[endpoint]):
-            return self._inendpoints[endpoint](data)
+            return self.__inendpoints[0](data)
+        elif (endpoint in self.__inendpoints) and callable(self.__inendpoints[endpoint]):
+            return self.__inendpoints[endpoint](data)
         else:
-            return self._inendpoints[0](data)
+            raise NameError('Unknown input endpoint: %s' % data)
 
     def registeroutput(self, name, function):
         if callable(function):
-            self._outendpoints[name] = function
+            self.__outendpoints[name] = function
         else:
-            self._outendpoints[name] = defaultoutput
             return False
 
     def registerinput(self, name, function):
         if callable(function):
-            self._inendpoints[name] = function
+            self.__inendpoints[name] = function
         else:
-            self._inendpoints[name] = defaultinput
             return False
+
+    def getself(self):
+        return self
 
 class SPyShell(SPyIO):
     """
@@ -112,7 +112,6 @@ class SPyShell(SPyIO):
     """
     def __init__(self, arg=None):
         super(SPyShell, self).__init__(self)
-
         # THIS IS DEEP VOODOO
         # We're inspecting the stack to get the calling frame,
         # so we can interact with the calling instance's .shared property
@@ -127,8 +126,7 @@ class SPyShell(SPyIO):
         # While weird and abusive, this seems to be the most transparent and 
         # "magical" way of providing what is more or less shared memory.
         # The upshot of this whole thing is that the data in the .shared property
-        # and the I/O endpoints transparently propagate into subshells invoked 
-        # by the parent instance.
+        # transparently propagates into subshells invoked interactively.
         callstack = inspect.stack()
         stacklen = len(callstack)
         try:
@@ -137,8 +135,6 @@ class SPyShell(SPyIO):
         except KeyError, IndexError:
             self.callinginstance = self # PIME TARADOX
         self.shared = self.callinginstance.shared
-        self._outendpoints = self.callinginstance._outendpoints
-        self._inendpoints = self.callinginstance._inendpoints
 
         self.__commands = {}
         self.__cmdhelp = {}
@@ -305,14 +301,14 @@ class SPyShell(SPyIO):
     def default(self, input):
         pass
  
-    def oninput(self, input):
-        pass
-
     def start(self, ret=None):
+        readline.set_completer(self.completer)
+        readline.parse_and_bind("tab: complete")
+
         while True:
             try:
+                readline.set_completer(self.completer)
                 input = self.input(self.__prompt)
-                self.oninput(input)
                 self.__lastinput.append(input)
                 if input in self.__exitcmds:
                     break
@@ -328,3 +324,4 @@ class SPyShell(SPyIO):
 if __name__ == "__main__":
     s = SPyShell()
     s.start()
+

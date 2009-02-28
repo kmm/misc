@@ -60,6 +60,7 @@ class Calc(spys.SPyShell):
                     b = str(self.stack.pop())
                     a = str(self.stack.pop())
                     self.stack.append(eval(a + word + b))
+                    self.output(self.dumpstack(1) + " <-- top of stack", 1)
                 except e:
                     return "Bad mojo"
             elif word == '$':
@@ -74,7 +75,12 @@ class Calc(spys.SPyShell):
         return "\n\n".join(buffer)
 
 def ponies(arg):
-    """Plain functions can be dynaloaded as well"""
+    """
+    Plain functions can be dynaloaded as well, with one caveat:
+    input should only be done via the function argument, and
+    output should only be done via return under most circumstances
+    to keep things curses-safe.
+    """
     return "OMG PONIES!"
 
 def spys_exports():
