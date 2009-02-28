@@ -1,5 +1,7 @@
+
 import readline
 import types
+import inspect
 
 class FixedStack(object):
     def __init__(self, size):
@@ -23,7 +25,61 @@ class FixedStack(object):
         self.buffer.insert(0, None)
         return self.buffer.pop()
 
-class SPyShell(object):
+class SPyIO(object):
+    '''
+    SPyIO provides I/O abstraction and a shared dict to SPyShell instances via inheritance.
+    By default, provides two I/O endpoints, in:0 and out:0, which just wrap
+    print and raw_input. Additional endpoints can be defined using the
+    registerinput() and registeroutput() methods.
+    '''
+    def __init__(self, arg=None):
+        self.shared = {}
+        self.__outendpoints = {0:self.defoutput}
+        self.__inendpoints = {0:self.definput}        
+
+    def defoutput(self, data=None):
+        print data
+        return True
+        
+    def definput(self, data=None):
+        if data:
+            indata = raw_input(data)
+        else:
+            indata = raw_input()
+        return indata
+
+    def output(self, data=None, endpoint=None):
+        if not endpoint:
+            self.__outendpoints[0](data)
+        elif (endpoint in self.__outendpoints) and callable(self.__outendpoints[endpoint]):
+            self.__outendpoints[endpoint](data)
+        else:
+            raise NameError('Unknown output endpoint: %s' % data)
+    
+    def input(self, data, endpoint=None):
+        if not endpoint:
+            return self.__inendpoints[0](data)
+        elif (endpoint in self.__inendpoints) and callable(self.__inendpoints[endpoint]):
+            return self.__inendpoints[endpoint](data)
+        else:
+            raise NameError('Unknown input endpoint: %s' % data)
+
+    def registeroutput(self, name, function):
+        if callable(function):
+            self.__outendpoints[name] = function
+        else:
+            return False
+
+    def registerinput(self, name, function):
+        if callable(function):
+            self.__inendpoints[name] = function
+        else:
+            return False
+
+    def getself(self):
+        return self
+
+class SPyShell(SPyIO):
     """
     Simple Python Shell (SPyS) implements an interactive, functional shell/REPL* extensible using a
     dynamically loading plugin architecture. [REPL = read-eval-print loop]
@@ -56,14 +112,33 @@ class SPyShell(object):
     which can be overridden to provide custom input handling.
 
     """
-    def __init__(self, arg=None):
+    def __init__(self, arg=None, callinginstance=None):
+        super(SPyShell, self).__init__(self)
+        # THIS IS DEEP VOODOO
+        # We're inspecting the stack to get the calling frame,
+        # so we can interact with the calling instance's .shared property
+        # (inherited from SPysIO). This seems like an inelegant and
+        # brute-force way of doing things, if there's something better
+        # either in implementation or architecturally to provide
+        # a shared variable between instances I'd love to know it.
+        # The upshot of this whole thing is that the data in the .shared property
+        # transparently propagates into subshells invoked interactively.
+        callstack = inspect.stack()
+        stacklen = len(callstack)
+        try:
+            myframe = callstack[stacklen - 2] # (len - 1) => this frame, (len - 2) => calling frame
+            self.callinginstance = myframe[0].f_locals['self']
+        except KeyError, IndexError:
+            self.callinginstance = self # PIME TARADOX
+        self.shared = self.callinginstance.shared
+
         self.__commands = {}
         self.__cmdhelp = {}
         self.__lastinput = FixedStack(20)
         self.__lastoutput = FixedStack(20)
         self.__trace = FixedStack(20)
         self.__exitcmds = ['exit', 'quit']
-  
+
         self.binddefault()
         self.setprompt()
 
@@ -166,7 +241,7 @@ class SPyShell(object):
     def call(self, input):
         (cmd, args) = input.split(' ', 1)
         command = "%s %s" % (cmd, self.handle(args))
-        print command
+        self.output(command)
         return self.handle(command)
 
     def loadmodule(self, input):
@@ -213,7 +288,7 @@ class SPyShell(object):
                 self.__trace.append((cmd, args, e))
                 return "Bad argument '%s' for '%s'" % (args, cmd)
             except Exception, e:
-                print e
+                self.output(e)
                 self.__trace.append((cmd, args, e))
                 return "Untrapped exception in '%s %s'" % (cmd, args)
         else:
@@ -229,7 +304,7 @@ class SPyShell(object):
         while True:
             try:
                 readline.set_completer(self.completer)
-                input = raw_input(self.__prompt)
+                input = self.input(self.__prompt)
                 self.__lastinput.append(input)
                 if input in self.__exitcmds:
                     break
@@ -237,12 +312,13 @@ class SPyShell(object):
                 result = self.handle(input)
                 self.__lastoutput.append(result)
                 if result:
-                    print result
-            except:
-                break
+                    self.output(result)
+            except Exception, e:
+                print e
         return ret
  
 if __name__ == "__main__":
     s = SPyShell()
+#    print dir(s)
     s.start()
 

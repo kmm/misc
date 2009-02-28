@@ -14,7 +14,7 @@ class Calc(spys.SPyShell):
           $ -> Display the entire stack
           x -> Clear the stack*
           ^ -> Pop the top element off the stack*
-    +,-,*,/ -> Pop the top two operands off the top of the stack as (a, b)
+    +,-,*,/ -> Pop the top two elements off the top of the stack as (a, b)
                and perform (a opr b), pushing the result back on to the stack.*
 
     Example:
