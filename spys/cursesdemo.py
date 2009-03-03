@@ -1,18 +1,23 @@
+
 import curses
+import editable
 import spys
+import sys
 """
 This sample demonstrates using SPyS I/O endpoints to build an interface
 similar to `irssi` using the curses windowing library.
 """
-
 screen = curses.initscr()
+
 curses.start_color()
+curses.noecho()
 (wheight, wwidth) = screen.getmaxyx()
 
 wstatus = curses.newwin(1, wwidth, 0, 0)
 wmain = curses.newwin(wheight - 3, wwidth, 1, 0)
 winfo = winp = curses.newwin(1, wwidth, wheight - 2, 0)
 winp = curses.newwin(1, wwidth, wheight - 1, 0)
+winp.keypad(True)
 
 curses.init_pair(1, curses.COLOR_WHITE, curses.COLOR_BLUE)
 curses.init_pair(2, curses.COLOR_CYAN, 0)
@@ -42,7 +47,10 @@ def endp_wmain(string):
     """
     Output endpoint for main window.
     """
-    wmain.addstr(str(string) + "\n")
+    if str(string).endswith("\n"):
+        wmain.addstr(str(string))
+    else:
+        wmain.addstr(str(string) + "\n")
     wrefresh()
 
 def endp_winfo(string):
@@ -53,17 +61,25 @@ def endp_winfo(string):
     winfo.addstr(str(string), curses.color_pair(1))
     wrefresh()
 
-def endp_winp(prompt):
-    """
-    Input endpoint for prompt window.
-    """
-    winp.erase()
-    winp.addstr(prompt, curses.color_pair(2))
-    wrefresh()
-    return winp.getstr()
+def clear(junk):
+    wmain.erase()
 
 s = spys.SPyShell()
-s.registerinput(0, endp_winp)
+c = editable.WindowCompleter(winp)
+
+# steal stdX so print/read get redirected to curses
+class ProxyStdIO(object):
+    def write(self, string):
+        s.output(string)
+
+    def readline(self):
+        return c.input()
+proxy = ProxyStdIO()
+sys.stdin = proxy
+sys.stdout = proxy
+sys.stderr = proxy
+
+s.registerinput(0, c.input)
 s.registeroutput(0, endp_wmain)
 s.registeroutput(1, endp_wstatus)
 s.registeroutput('info', endp_winfo)
@@ -71,8 +87,16 @@ s.output("main window (endpoint 0)", 0)
 s.output("status window (endpoint 1)", 1)
 s.output("info window (endpoint 'info')", 'info')
 s.output("default endpoint")
+s.setcmd("clear", clear)
+print "this should get proxied to default"
 s.start()
-screen.keypad(0)
+
+# restore stdX so curses can unfuck the terminal
+sys.stdout = sys.__stdout__
+sys.stdin = sys.__stdin__
+sys.stderr = sys.__stderr__
+
+screen.keypad(False)
 curses.nocbreak()
 curses.echo()
 curses.endwin()

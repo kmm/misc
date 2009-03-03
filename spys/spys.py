@@ -22,6 +22,9 @@ class FixedStack(object):
         self.buffer.insert(0, None)
         return self.buffer.pop()
 
+    def top(self):
+        return self.buffer[-1]
+
 class SPyIO(object):
     """
     SPyIO provides I/O abstraction and a shared dict to SPyShell instances via
@@ -158,21 +161,21 @@ class SPyShell(SPyIO):
                     "- Pops last input off of input stack")
         self.setcmd('$o', self.popoutput, 
                     "- Pops last object off of output stack")
-        self.setcmd('@load', self.loadmodule, 
+        self.setcmd('/load', self.loadmodule, 
                     "<module> - Imports an extension")
-        self.setcmd('@>', self.setprompt, 
+        self.setcmd('/prompt', self.setprompt, 
                     "[string] - Sets interactive prompt to string, default if blank")
         self.setcmd('?', self.help, 
                     "- Displays help message")
-        self.setcmd('@exec', self.execute, 
+        self.setcmd('/exec', self.execute, 
                     "<statement> - Execute a python statement")
-        self.setcmd('@bind', self.bindfn, 
+        self.setcmd('/bind', self.bindfn, 
                     "<keyword> <string> - Bind inlined function in <string> to <keyword>")
-        self.setcmd('@run', self.call, 
+        self.setcmd('/run', self.call, 
                     "<keyword>::<keyword> <args> call <keyword> with output of <`keyword args`>")
-        self.setcmd('@script', self.script, 
+        self.setcmd('/script', self.script, 
                     "<filename> - executes <filename> in shell")
-        self.setcmd('`', lambda x:x, 
+        self.setcmd('.', lambda x:x, 
                     "<string> - Returns <string> literal")
 
     def help(self, arg):
