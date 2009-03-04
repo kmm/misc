@@ -17,6 +17,7 @@ wstatus = curses.newwin(1, wwidth, 0, 0)
 wmain = curses.newwin(wheight - 3, wwidth, 1, 0)
 winfo = winp = curses.newwin(1, wwidth, wheight - 2, 0)
 winp = curses.newwin(1, wwidth, wheight - 1, 0)
+c = editable.EditableWindow(winp)
 winp.keypad(True)
 
 curses.init_pair(1, curses.COLOR_WHITE, curses.COLOR_BLUE)
@@ -40,17 +41,14 @@ def endp_wstatus(string):
     Output endpoint for status window.
     """
     wstatus.erase()
-    wstatus.addstr(str(string), curses.color_pair(1))
+    wstatus.addstr(str(string)[:wwidth], curses.color_pair(1))
     wrefresh()
     
 def endp_wmain(string):
     """
     Output endpoint for main window.
     """
-    if str(string).endswith("\n"):
-        wmain.addstr(str(string))
-    else:
-        wmain.addstr(str(string) + "\n")
+    wmain.addstr(str(string) + "\n")
     wrefresh()
 
 def endp_winfo(string):
@@ -58,28 +56,39 @@ def endp_winfo(string):
     Output endpoint for info window.
     """
     winfo.erase()
-    winfo.addstr(str(string), curses.color_pair(1))
+    winfo.addstr(str(string)[:wwidth], curses.color_pair(1))
     wrefresh()
+
+def endp_maskedinput(prompt):
+    """
+    Masked input endpoint.
+    """
+    return c.input("%s" % prompt, echo=False)
 
 def clear(junk):
     wmain.erase()
+    wrefresh()
 
 s = spys.SPyShell()
-c = editable.WindowCompleter(winp)
 
 # steal stdX so print/read get redirected to curses
 class ProxyStdIO(object):
     def write(self, string):
-        s.output(string)
+        if string.endswith("\n"):
+            s.output(str(string))
+        else:
+            s.output(str(string) + "\n")
 
     def readline(self):
-        return c.input()
+        return c.input("proxy-stdin: ")
+
 proxy = ProxyStdIO()
 sys.stdin = proxy
 sys.stdout = proxy
 sys.stderr = proxy
 
 s.registerinput(0, c.input)
+s.registerinput("masked", endp_maskedinput)
 s.registeroutput(0, endp_wmain)
 s.registeroutput(1, endp_wstatus)
 s.registeroutput('info', endp_winfo)
@@ -88,6 +97,7 @@ s.output("status window (endpoint 1)", 1)
 s.output("info window (endpoint 'info')", 'info')
 s.output("default endpoint")
 s.setcmd("clear", clear)
+
 print "this should get proxied to default"
 s.start()
 
