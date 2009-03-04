@@ -1,4 +1,3 @@
-
 import curses
 import editable
 import spys
@@ -48,7 +47,10 @@ def endp_wmain(string):
     """
     Output endpoint for main window.
     """
-    wmain.addstr(str(string) + "\n")
+    if str(string).endswith("\n"):
+        wmain.addstr(str(string))
+    else:
+        wmain.addstr(str(string) + "\n")
     wrefresh()
 
 def endp_winfo(string):
@@ -69,15 +71,21 @@ def clear(junk):
     wmain.erase()
     wrefresh()
 
+def setstatus(string, instance):
+    instance.output(str(string), 1)
+
+def setinfo(string, instance):
+    instance.output(str(string), "info")
+
+def getpass(string, instance):
+    return instance.input("Password: ", "masked")
+
 s = spys.SPyShell()
 
 # steal stdX so print/read get redirected to curses
 class ProxyStdIO(object):
     def write(self, string):
-        if string.endswith("\n"):
-            s.output(str(string))
-        else:
-            s.output(str(string) + "\n")
+        s.output(str(string))
 
     def readline(self):
         return c.input("proxy-stdin: ")
@@ -91,13 +99,16 @@ s.registerinput(0, c.input)
 s.registerinput("masked", endp_maskedinput)
 s.registeroutput(0, endp_wmain)
 s.registeroutput(1, endp_wstatus)
-s.registeroutput('info', endp_winfo)
+s.registeroutput("info", endp_winfo)
+
 s.output("main window (endpoint 0)", 0)
 s.output("status window (endpoint 1)", 1)
 s.output("info window (endpoint 'info')", 'info')
 s.output("default endpoint")
-s.setcmd("clear", clear)
-
+s.setcmd("/clear", clear)
+s.setcmd("/password", getpass)
+s.setcmd("/status", setstatus)
+s.setcmd("/info", setinfo)
 print "this should get proxied to default"
 s.start()
 

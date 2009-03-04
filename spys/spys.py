@@ -291,7 +291,10 @@ class SPyShell(SPyIO):
 
         if cmd in self.__commands.keys():
             try:
-                return self.__commands[cmd](args)
+                if "instance" in inspect.getargspec(self.__commands[cmd])[0]:
+                    return self.__commands[cmd](args, self)
+                else:
+                    return self.__commands[cmd](args)
             except AttributeError or NameError, e:
                 self.__trace.append((cmd, args, e))
                 return "Command '%s' failed" % cmd

@@ -151,7 +151,7 @@ class EditableWindow(object):
         self.maxlen = self.width - 1
     
     def sync(self):
-        """ [Hopefully] synchronize the edit buffer with what's on the screen """
+        """ [Hopefully] synchronize the screen with what's in the edit buffer """
         self.window.erase()
         self.window.addstr(self.inbuf.render())
         self.window.move(0, self.inbuf.vpcursor())
@@ -185,12 +185,14 @@ class EditableWindow(object):
             curses.flash()
  
     def input(self, prompt=None, echo=True):
-        """ Get stuff from terminal, returning stuff as string """
-        self.inbuf = EditBuffer(prompt=prompt)
+        """ 
+        Get stuff from terminal, returning stuff as string, with a
+        minimal subset of emacs-style editing bindings.
+        """
+        self.inbuf = EditBuffer(prompt=prompt, viewport=self.maxlen)
         self.sync()
         while True:
             inc = self.window.getch()
-            self.inbuf.vplen = self.maxlen
 
             if inc == curses.KEY_UP: # up
                 self.lastinput()
@@ -218,13 +220,15 @@ class EditableWindow(object):
                 self.inbuf.insert(chr(inc))
             else:
                 curses.flash()
-
+            
+            # mask input by not syncing after input
             if echo:
                 self.sync()
-
-        self.curline = 0
-        self.tempbuf = ""
+        # don't push masked input into command buffer
         if echo:
             if len(self.inbuf) > 0:
                 self.linebuf.insert(0, str(self.inbuf))
+
+        self.curline = 0
+        self.tempbuf = ""
         return str(self.inbuf)

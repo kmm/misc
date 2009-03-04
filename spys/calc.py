@@ -83,6 +83,14 @@ def ponies(arg):
     """
     return "OMG PONIES!"
 
+def instancedemo(arg, instance):
+    """
+    Optional magic argument 'instance' can be passed, requesting the
+    framework instance to pass itself so that the dynaloaded function
+    has access to a 'self' analog.
+    """
+    return dir(instance)
+
 def spys_exports():
     """
     spys_exports() describes module functionality to allow dynaloading by another SPyS REPL 
@@ -93,7 +101,8 @@ def spys_exports():
     and will allow the parent to load and map the exported callables into itself.
     """
     return [(__name__, "calc", Calc), 
-            (__name__, "ponies", ponies)]
+            (__name__, "ponies", ponies),
+            (__name__, "instancedemo", instancedemo)]
 
 if __name__ == "__main__":
     calc = Calc()
