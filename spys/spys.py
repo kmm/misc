@@ -172,7 +172,7 @@ class SPyShell(SPyIO):
         self.setcmd('/bind', self.bindfn, 
                     "<keyword> <string> - Bind inlined function in <string> to <keyword>")
         self.setcmd('/run', self.call, 
-                    "<keyword>::<keyword> <args> call <keyword> with output of <`keyword args`>")
+                    "<keyword> <keyword> <args> call <keyword> with output of <`keyword args`>")
         self.setcmd('/script', self.script, 
                     "<filename> - executes <filename> in shell")
         self.setcmd('.', lambda x:x, 
@@ -270,16 +270,7 @@ class SPyShell(SPyIO):
                 return "Could not enumerate module exports in %s" % mod.__name__
         except ImportError, e:
             return "Load failed, couldn't import %s" % input
- 
-    def completer(self, input, state):
-        options = [c for c in sorted(self.__commands.keys()) if c.startswith(input)]
-        opt = None
-        try:
-            opt = options[state]
-        except IndexError:
-            opt = None
-        return opt
- 
+
     def handle(self, input):
         if not input:
             return

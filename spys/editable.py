@@ -7,7 +7,7 @@ class EditBuffer(object):
     def __init__(self, string=None, prompt=None, viewport=None):
         self.cursor = 0
         self.killbuf = []
-
+        
         try:
             self.vplen = int(viewport)
         except TypeError:
@@ -194,30 +194,30 @@ class EditableWindow(object):
         while True:
             inc = self.window.getch()
 
-            if inc == curses.KEY_UP: # up
+            if inc in range(0x20, 0x7E): # printable ASCII
+                self.inbuf.insert(chr(inc))
+            elif inc in [curses.KEY_UP]: # up
                 self.lastinput()
-            elif inc == curses.KEY_DOWN: # down 
+            elif inc in [curses.KEY_DOWN]: # down 
                 self.nextinput()
-            elif inc == curses.KEY_LEFT: # left
+            elif inc in [curses.KEY_LEFT]: # left
                 self.inbuf.moverel(-1)
-            elif inc == curses.KEY_RIGHT: # right
+            elif inc in [curses.KEY_RIGHT]: # right
                 self.inbuf.moverel(1)
-            elif inc == 0x01: # ctrl-a
+            elif inc in [0x01]: # ctrl-a
                 self.inbuf.moveabs(0)
-            elif inc == 0x05: # ctrl-e
+            elif inc in [0x05]: # ctrl-e
                 self.inbuf.moveabs(-1)
-            elif inc == 0x0B: # ctrl-k
+            elif inc in [0x0B]: # ctrl-k
                 self.inbuf.kill()
-            elif inc == 0x19: # ctrl-y
+            elif inc in [0x19]: # ctrl-y
                 self.inbuf.yank()
             elif inc in [curses.KEY_BACKSPACE, 0x7F]: # backspace
                 self.inbuf.backspace()
-            elif inc == curses.KEY_DC: # delete
+            elif inc in [curses.KEY_DC]: # delete
                 self.inbuf.delete()
-            elif inc == 0x0A: # enter
+            elif inc in [0x0A]: # enter
                 break
-            elif inc in range(0x20, 0x7E): # printable ASCII
-                self.inbuf.insert(chr(inc))
             else:
                 curses.flash()
             
