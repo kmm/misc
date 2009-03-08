@@ -1,4 +1,4 @@
-import inspect
+import inspect, traceback, types
 
 class FixedStack(object):
     def __init__(self, size):
@@ -282,19 +282,22 @@ class SPyShell(SPyIO):
 
         if cmd in self.__commands.keys():
             try:
-                if "instance" in inspect.getargspec(self.__commands[cmd])[0]:
+                if type(self.__commands[cmd]) == types.FunctionType and \
+                "instance" in inspect.getargspec(self.__commands[cmd])[0]:
                     return self.__commands[cmd](args, self)
                 else:
                     return self.__commands[cmd](args)
             except AttributeError or NameError, e:
                 self.__trace.append((cmd, args, e))
+                self.output(traceback.format_exc())
                 return "Command '%s' failed" % cmd
             except ValueError or TypeError, e:
                 self.__trace.append((cmd, args, e))
+                self.output(traceback.format_exc())
                 return "Bad argument '%s' for '%s'" % (args, cmd)
             except Exception, e:
-                self.output(e)
                 self.__trace.append((cmd, args, e))
+                self.output(traceback.format_exc())
                 return "Untrapped exception in '%s %s'" % (cmd, args)
         else:
             return self.default(input)
