@@ -1,4 +1,5 @@
 import curses
+import time
  
 class EditBuffer(object):
     """
@@ -133,6 +134,7 @@ class EditBuffer(object):
         if end > len(self.buffer):
             end = len(self.buffer)
         # replaces tabs with spaces cuz i'm lazy
+        # (just in the rendered viewport, tabs remain in the input buffer)
         return self.prompt + "".join(self.buffer[start:end]).replace('\t', ' ')
  
 class EditableWindow(object):
@@ -194,8 +196,12 @@ class EditableWindow(object):
         while True:
             inc = self.window.getch()
 
-            if inc in range(0x20, 0x7E): # printable ASCII
+            if inc in range(0x20, 0x7F) + [0x09]: # printable ASCII
                 self.inbuf.insert(chr(inc))
+                # XXX this may workaround a weird issue in which
+                # pasting in large blocks of text fucks up curses...?
+                # Ugly ugly ugly.
+                time.sleep(0.0001)
             elif inc in [curses.KEY_UP]: # up
                 self.lastinput()
             elif inc in [curses.KEY_DOWN]: # down 
@@ -220,7 +226,7 @@ class EditableWindow(object):
                 break
             else:
                 curses.flash()
-            
+
             # mask input by not syncing after input
             if echo:
                 self.sync()

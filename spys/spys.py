@@ -197,6 +197,7 @@ class SPyShell(SPyIO):
         
         try:
             for line in file:
+                self.output(line.rstrip())
                 self.handle(line.rstrip())
         except:
             return "Error reading input file"
