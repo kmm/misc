@@ -172,7 +172,7 @@ class SPyShell(SPyIO):
         self.setcmd('run', self.call)
         self.setcmd('prompt', self.setprompt)
         self.setcmd('?', self.help)
-        self.setcmd('print', lambda x:x, "prints string literal")
+        self.setcmd('print', self.printio, "prints string literal")
 
     def help(self, name=None, *args):
         '''displays command help'''
@@ -185,17 +185,23 @@ class SPyShell(SPyIO):
         else:
             return "No help for %s" % name
 
-    def script(self, file, *args):
+    def printio(self, *args):
+        for arg in args:
+            self.output(str(arg))
+
+    def script(self, filename, silent=False, *args):
         '''Executes file line-by-line in spys environment'''
         try:
-            file = open(input)
-        except:
-            return "Could not open input file"
+            file = open(filename)
+        except Exception, e:
+            self.error("Could not open input file", e)
         
         try:
             for line in file:
-                self.output(line.rstrip())
-                self.handle(line.rstrip())
+                line = line.rstrip()
+                if not silent:
+                    self.output(line)
+                self.handle(line)
         except:
             return "Error reading input file"
 
