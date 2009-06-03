@@ -1,4 +1,4 @@
-import inspect, traceback, types
+import inspect, shlex, traceback, types
 
 class FixedStack(object):
     def __init__(self, size):
@@ -24,6 +24,8 @@ class FixedStack(object):
 
     def top(self):
         return self.buffer[-1]
+
+
 
 class SPyIO(object):
     """
@@ -144,52 +146,47 @@ class SPyShell(SPyIO):
         self._inendpoints = self.callinginstance._inendpoints
 
         self.__commands = {}
-        self.__cmdhelp = {}
         self.__lastinput = FixedStack(20)
         self.__lastoutput = FixedStack(20)
-        self.__trace = FixedStack(20)
         self.__exitcmds = ['exit', 'quit']
-
+        self.__exec_ret = None
+        self.__runloop = True
+		
         self.binddefault()
         self.setprompt()
 
+    def error(self, message, exception=None):
+        self.output(message, "error")
+        if exception:
+            self.output(traceback.format_exc(exception), "error")
+        return None
+
     def binddefault(self):
-        """ Default command bindings """
-        self.setcmd('$!', self.poptrace, 
-                    "- Pops last exception off trace stack")
-        self.setcmd('$i', self.popinput, 
-                    "- Pops last input off of input stack")
-        self.setcmd('$o', self.popoutput, 
-                    "- Pops last object off of output stack")
-        self.setcmd('/load', self.loadmodule, 
-                    "<module> - Imports an extension")
-        self.setcmd('/prompt', self.setprompt, 
-                    "[string] - Sets interactive prompt to string, default if blank")
-        self.setcmd('?', self.help, 
-                    "- Displays help message")
-        self.setcmd('/exec', self.execute, 
-                    "<statement> - Execute a python statement")
-        self.setcmd('/bind', self.bindfn, 
-                    "<keyword> <string> - Bind inlined function in <string> to <keyword>")
-        self.setcmd('/run', self.call, 
-                    "<keyword> <keyword> <args> call <keyword> with output of <`keyword args`>")
-        self.setcmd('/script', self.script, 
-                    "<filename> - executes <filename> in shell")
-        self.setcmd('.', lambda x:x, 
-                    "<string> - Returns <string> literal")
+        ''' Default command bindings '''
+        self.setcmd('$i', self.popinput)
+        self.setcmd('$o', self.popoutput)
+        self.setcmd('load', self.loadmodule)
+        self.setcmd('exec', self.execute)
+        self.setcmd('bind', self.bindfn)
+        self.setcmd('script', self.script)                    
+        self.setcmd('run', self.call)
+        self.setcmd('prompt', self.setprompt)
+        self.setcmd('?', self.help)
+        self.setcmd('print', lambda x:x, "prints string literal")
 
-    def help(self, arg):
-        """ Command help implementation """ 
-        if not arg:
+    def help(self, name=None, *args):
+        '''displays command help'''
+        if not name:
             return "? <command> - Displays command help, if available\nAvailable commands: %s" % ", ".join(sorted(self.__commands.keys()))    
-        if (arg in self.__commands) and (arg in self.__cmdhelp) and (self.__cmdhelp[arg]):
-            return "%s %s" % (arg, self.__cmdhelp[arg])
-        if arg not in self.__commands:
-            return "%s is unbound" % arg
-        
-        return "No help for %s" % arg
+        elif name in self.__commands and self.__commands[name].__doc__:
+            return "%s - %s" % (name, self.__commands[name].__doc__)
+        elif name not in self.__commands:
+            return "%s is unbound" % name
+        else:
+            return "No help for %s" % name
 
-    def script(self, input):
+    def script(self, file, *args):
+        '''Executes file line-by-line in spys environment'''
         try:
             file = open(input)
         except:
@@ -206,60 +203,59 @@ class SPyShell(SPyIO):
         if keyword and not fn:
             try:
                 del(self.__commands[keyword])
-                del(self.__cmdhelp[keyword])
             except IndexError:
                 pass
         elif keyword and fn:
+            if not __doc__ and help:
+                try:
+                    fn.__doc__ = help
+                except:
+                    pass
             self.__commands[keyword] = fn
-            self.__cmdhelp[keyword] = help
+                
+    def setprompt(self, input="spys> ", *args):
+        '''sets SPyS prompt'''
+        self.__prompt = input
 
-    def setprompt(self, input=None):
-        if input:
-            self.__prompt = input
-        else:
-            self.__prompt = "spys> "
-
-    def poptrace(self, input):
-        item = self.__trace.pop()
-        if item:
-            return (str(item[0]), str(item[1]), str(item[2]))
-        else:
-            return "No exceptions on trace stack"
-
-    def popinput(self, input):
+    def popinput(self, *args):
+        '''returns last input'''
         self.__lastinput.pop()        # pop first item because it's always going to be $i
         return self.__lastinput.pop()
     
-    def popoutput(self, input):
+    def popoutput(self, *args):
+        '''returns last returned output'''
         return self.__lastoutput.pop()
     
-    def execute(self, input):
+    def execute(self, cmdstr, *args):
+        '''executes python code'''
         try:
-            exec input
+            exec cmdstr
         except Exception, e:
-            self.__trace.append(('exec', input, e))
-            return "Execution failed"
+            self.error("Execution failed", e)
+            return None
 
-    def bindfn(self, input):
-        (keyword, fn) = input.split(None, 1)
+    def bindfn(self, keyword, fn, *args):
+        '''binds a function to a SPyS command'''
         expr = "self.setcmd('%s', %s, '''(bound function <<%s>>)''')" % (keyword, fn, fn)
         try:
             exec expr
             return "<<%s>> bound to '%s'" % (fn, keyword)
         except Exception, e:
-            self.__trace.append(('bindfn', input, e))
-            return "Bind failed"
+            self.error("Bind failed", e)
+            return None
 
-    def call(self, input):
-        (cmd, args) = input.split(None, 1)
-        command = "%s %s" % (cmd, self.handle(args))
-        self.output(command)
-        return self.handle(command)
+    def call(self, cmdstr, *args):
+        '''evaluates a SPyS command and executes the result'''
+        result = self.handle(cmdstr)
+        self.output(result)
+        return self.handle(result)
 
     def loadmodule(self, input):
+        '''loads a SPyS module'''
         commands = []
         try:
             mod =__import__(input)
+            mod = reload(mod)
             if 'spys_exports' in dir(mod):
                 exportlist = mod.spys_exports()
                 for export in exportlist:
@@ -270,61 +266,60 @@ class SPyShell(SPyIO):
             else:
                 return "Could not enumerate module exports in %s" % mod.__name__
         except ImportError, e:
-            return "Load failed, couldn't import %s" % input
+            self.error("Load failed, couldn't import %s" % input, e)
 
     def handle(self, input):
         if not input:
             return
-        try:
-            (cmd, args) = input.split(None, 1)
-        except ValueError:
-            cmd = input
-            args = None
-
+        args = shlex.split(input)
+        cmd = args[0]
+        cmdargs = args[1:]
         if cmd in self.__commands.keys():
             try:
                 if type(self.__commands[cmd]) == types.FunctionType and \
                 "instance" in inspect.getargspec(self.__commands[cmd])[0]:
-                    return self.__commands[cmd](args, self)
+                    return self.__commands[cmd](instance=self, *cmdargs)
                 else:
-                    return self.__commands[cmd](args)
+                    return self.__commands[cmd](*cmdargs)
             except AttributeError or NameError, e:
-                self.__trace.append((cmd, args, e))
-                self.output(traceback.format_exc())
-                return "Command '%s' failed" % cmd
+                self.error("Command '%s' failed" % cmd, e)
             except ValueError or TypeError, e:
-                self.__trace.append((cmd, args, e))
-                self.output(traceback.format_exc())
-                return "Bad argument '%s' for '%s'" % (args, cmd)
+                self.error("Bad argument(s) '%s' for '%s'" % (cmdargs, cmd), e)
             except Exception, e:
-                self.__trace.append((cmd, args, e))
-                self.output(traceback.format_exc())
-                return "Untrapped exception in '%s %s'" % (cmd, args)
+                self.error("Untrapped exception in '%s %s'" % (cmd, cmdargs), e)
         else:
             return self.default(input)
  
-    def default(self, input):
-        pass
- 
-    def oninput(self, input):
-        pass
-
-    def start(self, ret=None):
-        while True:
-            try:
-                input = self.input(self.__prompt)
-                self.oninput(input)
-                self.__lastinput.append(input)
-                if input in self.__exitcmds:
-                    break
-
+    def rep(self, ret=None):
+        try:
+            input = self.input(self.__prompt)
+            self.oninput(input)
+            self.__lastinput.append(input)
+            if input in self.__exitcmds:
+                self.stop()
+            else:
                 result = self.handle(input)
                 self.__lastoutput.append(result)
                 if result:
                     self.output(result)
-            except Exception, e:
-                self.output(e)
+        except Exception, e:
+            self.error("Untrapped exception in read-eval-print", e)
+                
+    def start(self):
+        self.__runloop = True
+        while self.__runloop:
+            ret = self.rep()
         return ret
+ 
+    def stop(self):
+        self.__runloop = False
+ 
+    def default(self, input):
+        return "Unknown command"
+ 
+    def oninput(self, input):
+        pass
+
  
 if __name__ == "__main__":
     s = SPyShell()

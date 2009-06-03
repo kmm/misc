@@ -61,8 +61,8 @@ class Calc(spys.SPyShell):
                     a = str(self.stack.pop())
                     self.stack.append(eval(a + word + b))
                     self.output(self.dumpstack(1) + " <-- top of stack", 1)
-                except e:
-                    return "Bad mojo"
+                except Exception, e:
+                    self.error("Bad mojo", e)
             elif word == '$':
                 buffer.append(self.dumpstack())
             elif word == '=':
@@ -74,7 +74,7 @@ class Calc(spys.SPyShell):
                     return "Input must be an operator or a parseable number"
         return "\n\n".join(buffer)
 
-def ponies(arg):
+def ponies():
     """
     Plain functions can be dynaloaded as well, with one caveat:
     input should only be done via the function argument, and
@@ -83,7 +83,7 @@ def ponies(arg):
     """
     return "OMG PONIES!"
 
-def instancedemo(arg, instance):
+def instancedemo(arg, instance=None):
     """
     Optional magic argument 'instance' can be passed, requesting the
     framework instance to pass itself so that the dynaloaded function
